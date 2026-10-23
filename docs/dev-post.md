@@ -1,5 +1,3 @@
-# [DRAFT — numbers and links to fill after eval + repo + demo are ready]
-
 Title: SlowPost: A Post Office for Messages You Shouldn't Send Yet
 
 Tags: #devchallenge #hf26challenge #ai #opensource
@@ -97,15 +95,31 @@ pick your own default model. That's the open-source way.
 
 ## Demo
 
-- Live demo: [FILL URL or "see video"]
-- Video/GIF: [FILL]
-- Repo: [FILL GitHub URL]
+- **Live demo: https://slowpost.wevi.top** — the public demo runs in demo mode:
+  the overnight hold is shortened to 3 minutes so you can watch a letter unlock.
+  (Production mode holds letters until 09:00 the next morning.)
+- Repo: https://github.com/awer123456/slowpost
 
 ## What I learned
 
-[FILL 2–3 honest paragraphs: small models + good retrieval beat a big model
-with a lazy prompt for this; the rerank stage measurably changed which
-techniques got picked; forcing myself to define "heat" as a metric made the
-rewrite quality discussable instead of vibes.]
+**Retrieval quality is the product.** My first instinct was to spend all the
+effort on the rewrite prompt. The eval disagreed: when the wrong technique
+cards were retrieved, even a perfect prompt produced generic advice. Adding the
+rerank stage changed which cards got picked for most drafts, and the rewrites
+immediately became more specific — a concrete rota for the roommate, a boundary
+script for the parents. Grounding beats eloquence.
+
+**Newest ≠ best fit.** I benchmarked three open-weight models expecting the
+newest flagship to win. DeepSeek-V3.2 — not the newest — was fastest *and*
+produced the coolest rewrites, while Qwen3.5-35B-A3B's long reasoning traces
+made it 8× slower for no quality gain. For a small, well-scoped job, a boring
+model with a strict schema beats a brilliant one thinking out loud.
+
+**Define the metric before you argue about quality.** "Is this rewrite good?"
+is a vibes question. Forcing myself to define *heat* — absolutes, insults,
+threats, exclamation density — as a dumb, transparent lexicon score made
+quality measurable and comparable across models. The metric is crude and I say
+so in the repo; a crude metric you can run beats a sophisticated opinion you
+can't.
 
 Slow down. Send tomorrow. 📮
