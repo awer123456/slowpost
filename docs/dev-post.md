@@ -71,9 +71,15 @@ I built a small eval harness: 12 heated Chinese drafts (roommates, partners,
 clients, landlords, a 1 a.m. breakup letter…), each labeled with the technique
 cards a human would pick.
 
-- **Retrieval Recall@3: 54.2%** — strict scoring: each case labels the two cards
-  a human would pick, and near-miss cards (equally valid techniques) count as
-  misses. Honest number, clear headroom, and now there's a harness to improve it.
+- **Retrieval Recall@3: 75.0%** (first run: 54.2%) — strict scoring: each case
+  labels the two cards a human would pick, and near-miss cards (equally valid
+  techniques) count as misses. The first run's misses turned out to be mostly
+  my pipeline's fault, not the reranker's: I cut the candidate pool to 8
+  before reranking (the right card was often sitting at #9–14), and the
+  cards' written vocabulary didn't match how people actually type when angry.
+  Widening the pool, adding colloquial keywords to the cards, and phrasing the
+  rerank query as a task ("pick the techniques that fit this message") took
+  recall from 54.2% to 75.0%.
 - **Generation, per model** (schema success / avg latency / avg "heat reduction"
   from a transparent lexicon metric that scores absolutes, insults, threats and
   exclamation density before vs. after; latency measured from a remote dev box,
@@ -81,14 +87,19 @@ cards a human would pick.
 
 | Model | Schema success | Latency | Heat reduction |
 |---|---|---|---|
-| DeepSeek-V3.2 | 12/12 (100%) | 14.3s | 86% |
-| DeepSeek-V4.1-Flash | 12/12 (100%) | 17.2s | 74% |
-| Qwen3.5-35B-A3B | 12/12 (100%) | 114.4s | 82% |
+| DeepSeek-V3.2 | 12/12 (100%) | 12.9s | 83% |
+| DeepSeek-V4.1-Flash | 12/12 (100%) | 14.8s | 72% |
+| Qwen3.5-35B-A3B | 9/12 (75%)* | 97.2s | 78% |
 
 DeepSeek-V3.2 won on every axis — fastest *and* coolest-headed — so it's the
-default. The newest model (Qwen3.5-35B-A3B) was 8× slower because of its long
+default. The newest model (Qwen3.5-35B-A3B) was 7× slower because of its long
 reasoning traces: a neat reminder that "latest flagship" ≠ "best fit" for a
 small, well-scoped job.
+
+\* Qwen3.5's row was measured from the production server, and 3 of its 12
+calls failed on provider errors (HTTP 503s and dropped connections) across
+repeated attempts from two networks — its latency and heat figures cover the
+9 completed cases. Even on a faster network it lost by 7×.
 
 The eval ships in the repo (`npm run eval`) — run it, get your own numbers,
 pick your own default model. That's the open-source way.
@@ -99,6 +110,8 @@ pick your own default model. That's the open-source way.
   the overnight hold is shortened to 3 minutes so you can watch a letter unlock.
   (Production mode holds letters until 09:00 the next morning.)
 - Repo: https://github.com/awer123456/slowpost
+
+![SlowPost demo: a roommate rant about takeout boxes, cooled from heat 54 to 0 — calm rewrite, neutral summary, both sides' needs, and the technique cards used](https://slowpost.wevi.top/demo.png)
 
 ## What I learned
 
@@ -121,5 +134,16 @@ threats, exclamation density — as a dumb, transparent lexicon score made
 quality measurable and comparable across models. The metric is crude and I say
 so in the repo; a crude metric you can run beats a sophisticated opinion you
 can't.
+
+**…and check your ruler before you blame the model.** Midway through, a demo
+run showed a calm rewrite scoring *hotter* than the original draft (54 → 64).
+The rewrite was fine; the metric wasn't. It contained the word 垃圾 — which
+means both "trash" (as in "shall we take turns clearing the trash?") and
+"you're trash" — and one literal, innocent use maxed out the score. I fixed
+the lexicon (masking literal uses, replacing ambiguous single characters with
+actual insult phrases) and added a guard to the pipeline itself: if a rewrite
+doesn't measure cooler than the draft, it regenerates once and keeps the
+cooler version. The most dangerous bugs in an AI pipeline are the ones in
+your own measuring stick.
 
 Slow down. Send tomorrow. 📮

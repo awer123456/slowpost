@@ -11,6 +11,11 @@ SlowPost is a sibling of [WeVi](https://github.com/awer123456), a private AI
 mediation space built on the same belief: **the most sensitive conversations in
 your life should be handled by models you can choose, inspect, and run yourself.**
 
+**Live demo: https://slowpost.wevi.top** (demo mode: the overnight hold is
+shortened to 3 minutes so you can watch a letter unlock)
+
+![SlowPost demo: a roommate rant about takeout boxes, cooled from heat 54 to 0](https://slowpost.wevi.top/demo.png)
+
 ## Why open-weight AI is the core
 
 This is not a wrapper around a closed API. Every model in the pipeline is an
@@ -76,20 +81,27 @@ Results are written to `data/eval-results.json`. Numbers from our run
 (2026-10-23, measured from a remote dev box — the deployed server in-region is
 faster):
 
-- **Retrieval Recall@3: 54.2%** — strict scoring: each case labels the two cards
-  a human would pick, and near-miss cards (equally valid techniques) count as
-  misses. There is clear headroom here, and the harness now exists to measure
-  improvements instead of guessing.
+- **Retrieval Recall@3: 75.0%** (first run: 54.2%) — strict scoring: each case
+  labels the two cards a human would pick, and near-miss cards (equally valid
+  techniques) count as misses. Diagnosing the misses showed most losses were
+  not the reranker's fault: the candidate pool was cut to 8 before reranking,
+  and the cards' written vocabulary missed users' colloquial wording. Widening
+  the pool, adding colloquial tags, and phrasing the rerank query as a task
+  took it to 75.0%.
 
 | Model | Schema success | Avg latency | Avg heat reduction | Total tokens |
 |---|---|---|---|---|
-| DeepSeek-V3.2 | 12/12 (100%) | 14.3s | 86% | 9,033 |
-| DeepSeek-V4.1-Flash | 12/12 (100%) | 17.2s | 74% | 17,217 |
-| Qwen3.5-35B-A3B | 12/12 (100%) | 114.4s | 82% | 66,723 |
+| DeepSeek-V3.2 | 12/12 (100%) | 12.9s | 83% | 9,230 |
+| DeepSeek-V4.1-Flash | 12/12 (100%) | 14.8s | 72% | 16,122 |
+| Qwen3.5-35B-A3B | 9/12 (75%)* | 97.2s | 78% | 50,588 |
 
 DeepSeek-V3.2 won on every axis, so it is the default. Qwen3.5-35B-A3B's
-reasoning traces made it 8× slower — a good reminder that "newest" is not
+reasoning traces made it 7× slower — a good reminder that "newest" is not
 "best fit" for a small, well-scoped task.
+
+\* The Qwen3.5 row was measured from the production server; 3 of its 12 calls
+failed on provider errors (HTTP 503 / dropped connections) across repeated
+attempts from two networks, so its figures cover the 9 completed cases.
 
 ## Run it
 

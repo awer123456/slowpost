@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { embed, rerank } from "./llm.js";
 
 // Hybrid retrieval over the de-escalation technique card library:
@@ -64,16 +65,22 @@ function bm25Scores(query: string): number[] {
   });
 }
 
-// --- embeddings with on-disk cache
+// --- embeddings with on-disk cache, keyed by a hash of the card texts so
+// editing a card can never silently reuse stale vectors.
 let cardVectors: number[][] | null = null;
 async function getCardVectors(): Promise<number[][]> {
   if (cardVectors) return cardVectors;
+  const texts = cards.map(cardText);
+  const hash = crypto.createHash("sha256").update(texts.join("\n")).digest("hex").slice(0, 16);
   try {
     const cached = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
-    if (cached.length === cards.length) { cardVectors = cached; return cached; }
+    if (cached.hash === hash && cached.vectors?.length === cards.length) {
+      cardVectors = cached.vectors;
+      return cardVectors!;
+    }
   } catch { /* no cache yet */ }
-  cardVectors = await embed(cards.map(cardText));
-  fs.writeFileSync(CACHE_FILE, JSON.stringify(cardVectors));
+  cardVectors = await embed(texts);
+  fs.writeFileSync(CACHE_FILE, JSON.stringify({ hash, vectors: cardVectors }));
   return cardVectors;
 }
 
@@ -111,17 +118,25 @@ export async function retrieveTechniques(query: string, topK = 3): Promise<Retri
       fused.set(docIdx, cur);
     });
   };
-  addRank(bmRank.slice(0, 8), "bm25");
-  if (vecRank.length) addRank(vecRank.slice(0, 8), "embedding");
+  addRank(bmRank, "bm25");
+  if (vecRank.length) addRank(vecRank, "embedding");
 
+  // The library is small: let the reranker see a wide candidate pool (top 12
+  // of the fusion) instead of cutting to 8 before it — most recall losses in
+  // our eval happened at exactly that cut.
   const candidates = [...fused.entries()]
     .sort((a, b) => b[1].score - a[1].score)
-    .slice(0, 8);
+    .slice(0, 12);
 
   // Rerank for precision; fall back to fusion order if rerank is unavailable.
+  // The reranker is instruction-aware, so phrase the query as the task.
   try {
     const docs = candidates.map(([i]) => cardText(cards[i]));
-    const ranked = await rerank(query, docs, topK);
+    const ranked = await rerank(
+      `为下面这条冲突消息选择最适用的沟通技巧。消息：${query}`,
+      docs,
+      topK,
+    );
     return ranked.map((r) => ({
       card: cards[candidates[r.index][0]],
       rerankScore: r.score,
