@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/letters.json
+data/embeddings-cache.json
+dist/
+*.log
